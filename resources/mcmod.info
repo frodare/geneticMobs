@@ -1,0 +1,15 @@
+[
+{
+  "modid": "geneticmobs",
+  "name": "Genetic Mobs",
+  "description": "",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Charles Howard"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": []
+}
+]
