@@ -5,7 +5,7 @@
 
 - Install the genetic AI task in target mobs
 - Save spawn time on initial spawn
-- Only allow mobs to live for 30s
+- Only allow mobs to live for `Life Span` as determined in the traits gene
 - When a mob dies, breed a new one
 - Keep a fitness table updated (with current max fittness)
 
@@ -21,19 +21,28 @@
 - `0` Tick (will not trigger durning running task)
 - `1` On Take Damage
 - `2` See Entity
+- `3` On Start Attack
+- `4` On Collide into Opponent
+
+
 - `3` Is Burning
-- `4` On Start Attack
-- `5` On Collide into Opponent
 
 ##Actions
-- `0` Jump/Swim
-- `1` Panic (Time, 0 - 10)
-- `2` Run Away From Target (Time, 0 - 10)
-- `3` Attack Target
-- `4` Charge Target (Time, 0 - 10)
-- `5` Wander (Time)
-- `6` Strafe (Time)
+- `0` Jump/Swim (mutex 2)
+- `1` Panic (Time, 0 - 10) (mutex 3)
+- `2` Run Away From Target (Time, 0 - 10) (mutex 1)
+- `3` Attack Target (mutex 4)
+- `4` Charge Target (Time, 0 - 10) (mutex 1)
+- `5` Wander (Time) (mutex 1)
+- `6` Strafe (Time) (mutex 1)
 - `7` Set Target (`0` Last Attacker, `1` Random Opponent)
+
+MutexBits
+- `0` run, walk
+- `1` jump
+- `2` attack, look, mate
+- `3` swim
+
 
 ##DNA Format
 - `long 0` Traits
@@ -41,7 +50,7 @@
 
 ##Traits Gene Byte Format (single java long)
 - `byte 0` DNA version
-- `byte 1` Strength (2-5 hit points)
+- `byte 1` Strength (2-5 hit points) affects size of mob
 - `byte 2` Speed (0.5-1.5 m/s)
 - `byte 3` Life Span (10-40 seconds)
 - `byte 4` Health (6-13) 
@@ -80,8 +89,8 @@ Gene Behavior Values
 - find all genes for the given stimulus
 - check all environmental factors aginst gene values
 	+ if gene factor is greater store behavior with a score of the difference
-	+ pick lowest scoring gene (the one that closest matches the environmental factors)
-	+ invoke action of select gene
+	+ pick lowest scoring genes (the ones that closest matches the environmental factors) where the mutex do not conflict
+	+ invoke action of selected gene
 
 ##Breeding Algorithm
 
