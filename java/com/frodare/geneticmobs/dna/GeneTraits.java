@@ -1,6 +1,15 @@
 package com.frodare.geneticmobs.dna;
 
+import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Traits Gene Byte Format (single java long)
@@ -31,13 +40,15 @@ public class GeneTraits {
 	 * 
 	 * Hitpoints: 2-5
 	 */
+	@Trait(min = 2, max = 5, byteIndex = 1)
 	public int strength;
 
 	/**
 	 * Byte 2
 	 * 
-	 * 0.5-1.5 m/s
+	 * 0.5-1.5 m/s /10
 	 */
+	@Trait(min = 5, max = 15, byteIndex = 2)
 	public int speed;
 
 	/**
@@ -45,6 +56,7 @@ public class GeneTraits {
 	 * 
 	 * 20-60 seconds
 	 */
+	@Trait(min = 20, max = 60, byteIndex = 3)
 	public int lifeSpan;
 
 	/**
@@ -52,6 +64,7 @@ public class GeneTraits {
 	 * 
 	 * 6-13
 	 */
+	@Trait(min = 6, max = 13, byteIndex = 4)
 	public int health;
 
 	/**
@@ -59,30 +72,60 @@ public class GeneTraits {
 	 * 
 	 * 0 - 4 points per 400 ticks (20 seconds)
 	 */
+	@Trait(min = 0, max = 4, byteIndex = 5)
 	public int regeneration;
 
 	protected byte[] bytes = new byte[8];
+
+	public void init() {
+		normalizeTo(BIOPOINTS);
+		processAnnotations();
+	}
+
+	private void processAnnotations() {
+		for(Entry<Field, Trait> e : getTraitAnnotations().entrySet()){
+			try {
+				Trait t = e.getValue();
+				e.getKey().set(this, getTraitPropertyValue(t.byteIndex(), t.min(), t.max()));
+			} catch (Exception ignore) {
+
+			}
+		}
+	}
+
+	protected Map<Field, Trait> getTraitAnnotations() {
+		Map<Field, Trait> annotations = new HashMap<Field, GeneTraits.Trait>();
+		for (Field f : this.getClass().getDeclaredFields()) {
+			for (Annotation a : f.getAnnotations()) {
+				if (a instanceof Trait) {
+					annotations.put(f, (Trait)a);
+				}
+			}
+		}
+		return annotations;
+	}
+	
+	protected int getTraitPropertyValue(int byteIndex, int min, int max) {
+		
+		int value = expand(bytes[byteIndex]);
+		
+		int range = max - min;
+		
+		return (int) Math.round(range * (value / 256d)) + min;
+		
+		
+	}
 
 	public static GeneTraits fromLong(long l) {
 		GeneTraits g = new GeneTraits();
 		ByteBuffer b = ByteBuffer.allocate(8);
 		b.putLong(l);
-		g.bytes = b.array();
-		/*
-		 * g.version = expand(b.get(0)); g.strength = expand(b.get(1)); g.speed
-		 * = expand(b.get(2)); g.lifeSpan = expand(b.get(3)); g.health =
-		 * expand(b.get(4)); g.regeneration = expand(b.get(5));
-		 */
-		g.normalizeTo(BIOPOINTS);
+		b.flip();
+		b.get(g.bytes);
 		return g;
 	}
 
 	public long toLong() {
-		/*
-		 * byte[] a = new byte[8]; a[0] = compact(version); a[1] =
-		 * compact(strength); a[2] = compact(speed); a[3] = compact(lifeSpan);
-		 * a[4] = compact(health); a[5] = compact(regeneration);
-		 */
 		return ByteBuffer.wrap(bytes).getLong();
 	}
 
@@ -90,32 +133,20 @@ public class GeneTraits {
 		double s = usedBiopoints();
 
 		for (int i = 0; i < bytes.length; i++) {
-			bytes[i] = (byte) Math.round(biopoints * (bytes[i] / s));
+			bytes[i] = (byte) Math.round(biopoints * (expand(bytes[i]) / s));
 		}
 
-		/*
-		 * health = (int) Math.round(biopoints * (health / s)); strength = (int)
-		 * Math.round(biopoints * (strength / s)); speed = (int)
-		 * Math.round(biopoints * (speed / s)); lifeSpan = (int)
-		 * Math.round(biopoints * (lifeSpan / s)); regeneration = (int)
-		 * Math.round(biopoints * (regeneration / s));
-		 */
-
 		int i = usedBiopoints();
-		/* health -= (i - biopoints); */
 		bytes[4] -= (i - biopoints);
 	}
 
 	public int usedBiopoints() {
 		int points = 0;
-		for (byte b : bytes) {
-			points += b;
+		for (int i = 1; i < bytes.length; i++) {
+			points += expand(bytes[i]);
 		}
 		return points;
-
-		// return strength + speed + lifeSpan + health + regeneration;
 	}
-
 
 	protected static byte compact(int i) {
 		return (byte) i;
@@ -125,4 +156,13 @@ public class GeneTraits {
 		return (int) b & 0xFF;
 	}
 
+	@Retention(RetentionPolicy.RUNTIME)
+	@Target(ElementType.FIELD)
+	public @interface Trait {
+		int min();
+
+		int max();
+
+		int byteIndex();
+	}
 }
